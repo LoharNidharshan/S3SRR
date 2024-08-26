@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: S3 Replication Setup
+
+Resources:
+  SourceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      # BucketName: my-source-bucket
+      VersioningConfiguration:
+        Status: Enabled
+      ReplicationConfiguration:
+        Role: !GetAtt 'SourceBucketReplicationRole.Arn'
+        Rules:
+          - Destination:
+              Bucket: !GetAtt 'DestinationBucket.Arn'
+            Status: Enabled
+
+  DestinationBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      # BucketName: my-destination-bucket
+
+  SourceBucketReplicationRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - s3.amazonaws.com
+    
+  SourceBucketReplicationPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: SourceBucketReplicationPolicy
+      Roles:
+        - !Ref SourceBucketReplicationRole
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 's3:GetReplicationConfiguration'
+              - 's3:ListBucket'
+            Effect: Allow
+            Resource: !GetAtt 'SourceBucket.Arn'
+          - Action:
+              - 's3:GetObjectVersion'
+              - 's3:GetObjectVersionAcl'
+            Effect: Allow
+            Resource: !Sub '${SourceBucket.Arn}/*'
+          - Action:
+              - 's3:ReplicateObject'
+              - 's3:ReplicateDelete'
+            Effect: Allow
+            Resource: !Sub '${DestinationBucket.Arn}/*'
+
